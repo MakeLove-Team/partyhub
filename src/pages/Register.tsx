@@ -1,8 +1,10 @@
 // src/pages/Register.tsx
-import { TextInput, PasswordInput, Button, Box, Title } from '@mantine/core';
+import { TextInput, PasswordInput, Button, Box, Title, Text, Container } from '@mantine/core';
 import { AnimatedBackground } from '../components/AnimatedBackground';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useForm } from '@mantine/form';
+import { register } from '../api/auth';
 
 interface RegisterForm {
   email: string;
@@ -11,61 +13,73 @@ interface RegisterForm {
   username: string;
 }
 
+const inputStyles = {
+  input: {
+    background: 'rgba(0, 0, 0, 0.5)',
+    border: '1px solid rgba(255, 0, 0, 0.2)',
+    color: '#ffffff',
+    '&:focus': {
+      border: '1px solid rgba(255, 0, 0, 0.5)',
+    }
+  },
+  label: {
+    color: '#ffffff'
+  }
+};
+
 export const Register: React.FC = () => {
   const navigate = useNavigate();
-  const [formData, setFormData] = useState<RegisterForm>({
-    email: '',
-    password: '',
-    confirmPassword: '',
-    username: ''
+  const [error, setError] = useState<string>('');
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+
+  const form = useForm({
+    initialValues: {
+      email: '',
+      password: '',
+      confirmPassword: '',
+      username: ''
+    },
+    validate: {
+      email: (value: string) => (/^\S+@\S+$/.test(value) ? null : 'Nieprawidłowy adres email'),
+      username: (value: string) => (
+        value.length >= 3 ? null : 'Nazwa użytkownika musi mieć minimum 3 znaki'
+      ),
+      password: (value: string) => (
+        value.length >= 6 ? null : 'Hasło musi mieć minimum 6 znaków'
+      ),
+      confirmPassword: (value: string, values: RegisterForm) => (
+        value === values.password ? null : 'Hasła nie są identyczne'
+      ),
+    }
   });
 
-  const sharedInputStyles = {
-    root: {
-      width: '100%'
-    },
-    input: {
-      background: 'rgba(0, 0, 0, 0.5)',
-      border: '1px solid rgba(255, 0, 0, 0.2)',
-      borderRadius: 0,
-      color: 'white',
-      padding: '0 20px',
-      fontSize: '16px',
-      height: '50px',
-      width: '100%',
-      lineHeight: '50px',
-      transition: 'all 0.3s ease',
-      '&:focus': {
-        border: '1px solid rgba(255, 0, 0, 0.5)',
-        boxShadow: '0 0 10px rgba(255, 0, 0, 0.2)'
-      },
-      '&::placeholder': {
-        color: '#666'
-      }
-    },
-    wrapper: {
-      width: '100%'
+  const handleSubmit = async (values: RegisterForm) => {
+    try {
+      setError('');
+      setIsLoading(true);
+
+      await register({
+        username: values.username,
+        email: values.email,
+        password: values.password
+      });
+
+      navigate('/');
+    } catch (err) {
+      console.error('Registration error:', err);
+      setError(err instanceof Error ? err.message : 'Wystąpił błąd podczas rejestracji. Spróbuj ponownie.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
     <Box style={{ position: 'relative', minHeight: '100vh' }}>
       <AnimatedBackground />
-      <Box
-        style={{
-          position: 'relative',
-          minHeight: '100vh',
-          width: '100vw',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1
-        }}
-      >
+      <Container size="xs" style={{ height: '100vh', display: 'flex', alignItems: 'center' }}>
         <Box
           style={{
             width: '100%',
-            maxWidth: 450,
             padding: '50px 40px',
             background: 'linear-gradient(135deg, rgba(20, 20, 20, 0.95), rgba(30, 30, 30, 0.9))',
             backdropFilter: 'blur(20px)',
@@ -80,7 +94,7 @@ export const Register: React.FC = () => {
               top: 0,
               left: 0,
               width: '100%',
-              height: '4px',
+              height: 4,
               background: 'linear-gradient(90deg, transparent, #FF0000, transparent)',
             }}
           />
@@ -102,77 +116,84 @@ export const Register: React.FC = () => {
             PARTYHUB
           </Title>
 
-          <Box style={{ width: '100%' }}>
+          <form onSubmit={form.onSubmit(handleSubmit)}>
+            {error && (
+              <Text color="red" mb="md" ta="center" style={{ color: '#ff0000' }}>
+                {error}
+              </Text>
+            )}
+
             <TextInput
+              label="Nazwa użytkownika"
               placeholder="Nazwa użytkownika"
-              value={formData.username}
-              onChange={(e) => setFormData({...formData, username: e.target.value})}
-              mb={25}
-              styles={sharedInputStyles}
+              {...form.getInputProps('username')}
+              mb="md"
+              styles={inputStyles}
             />
 
             <TextInput
+              label="Email"
               placeholder="Email"
-              value={formData.email}
-              onChange={(e) => setFormData({...formData, email: e.target.value})}
-              mb={25}
-              styles={sharedInputStyles}
+              {...form.getInputProps('email')}
+              mb="md"
+              styles={inputStyles}
             />
 
             <PasswordInput
+              label="Hasło"
               placeholder="Hasło"
-              value={formData.password}
-              onChange={(e) => setFormData({...formData, password: e.target.value})}
-              mb={25}
-              styles={sharedInputStyles}
+              {...form.getInputProps('password')}
+              mb="md"
+              styles={inputStyles}
             />
 
             <PasswordInput
+              label="Powtórz hasło"
               placeholder="Powtórz hasło"
-              value={formData.confirmPassword}
-              onChange={(e) => setFormData({...formData, confirmPassword: e.target.value})}
-              mb={40}
-              styles={sharedInputStyles}
+              {...form.getInputProps('confirmPassword')}
+              mb="xl"
+              styles={inputStyles}
             />
-          </Box>
 
-          <Button 
-            fullWidth
-            style={{
-              background: 'linear-gradient(45deg, #FF0000, #FF4444)',
-              border: 'none',
-              borderRadius: 0,
-              padding: '10px 30px',
-              height: 45,
-              fontSize: '16px',
-              fontWeight: 600,
-              letterSpacing: '1px',
-              marginBottom: '20px',
-              '&:hover': {
-                background: 'linear-gradient(45deg, #FF4444, #FF0000)',
-                boxShadow: '0 0 20px rgba(255, 0, 0, 0.3)'
-              }
-            }}
-          >
-            ZAREJESTRUJ SIĘ
-          </Button>
+            <Container p={0}>
+              <Button 
+                type="submit"
+                fullWidth
+                mb="md"
+                loading={isLoading}
+                styles={() => ({
+                  root: {
+                    background: 'linear-gradient(45deg, #FF0000, #FF4444)',
+                    '&:hover': {
+                      background: 'linear-gradient(45deg, #FF4444, #FF0000)',
+                    }
+                  }
+                })}
+              >
+                ZAREJESTRUJ SIĘ
+              </Button>
 
-          <Button 
-            variant="subtle"
-            fullWidth
-            onClick={() => navigate('/')}
-            style={{
-              color: '#FF4444',
-              '&:hover': {
-                background: 'transparent',
-                color: '#FF0000'
-              }
-            }}
-          >
-            POWRÓT DO LOGOWANIA
-          </Button>
+              <Button 
+                variant="subtle"
+                fullWidth
+                onClick={() => navigate('/')}
+                disabled={isLoading}
+                styles={() => ({
+                  root: {
+                    color: '#FF4444',
+                    '&:hover': {
+                      background: 'transparent',
+                      color: '#FF0000'
+                    }
+                  }
+                })}
+              >
+                POWRÓT DO LOGOWANIA
+              </Button>
+            </Container>
+          </form>
         </Box>
-      </Box>
+      </Container>
     </Box>
   );
 };

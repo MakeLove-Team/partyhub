@@ -1,7 +1,7 @@
 // src/components/AnimatedBackground.tsx
 import { Box } from '@mantine/core';
 
-export const AnimatedBackground = () => {
+export const AnimatedBackground: React.FC = () => {
   return (
     <Box
       style={{

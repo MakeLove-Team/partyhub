@@ -12,15 +12,20 @@
   "dependencies": {
     "@emotion/react": "^11.13.5",
     "@mantine/core": "^7.14.3",
+    "@mantine/form": "^7.15.1",
     "@mantine/hooks": "^7.14.3",
     "@tauri-apps/api": "^2.1.1",
     "@tauri-apps/plugin-shell": "^2",
+    "bcryptjs": "^2.4.3",
+    "mongoose": "^8.9.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^7.0.2"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^22.10.2",
     "@types/react": "^18.2.15",
     "@types/react-dom": "^18.2.7",
     "@vitejs/plugin-react": "^4.2.1",

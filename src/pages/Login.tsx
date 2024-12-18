@@ -1,68 +1,70 @@
 // src/pages/Login.tsx
-import { TextInput, PasswordInput, Button, Box, Title, Flex } from '@mantine/core';
+import { TextInput, PasswordInput, Button, Box, Title, Text, Container } from '@mantine/core';
 import { AnimatedBackground } from '../components/AnimatedBackground';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-const navigate = useNavigate();
+import { useForm } from '@mantine/form';
+import { login } from '../api/auth';
 
 interface LoginForm {
   email: string;
   password: string;
 }
 
+const inputStyles = {
+  input: {
+    background: 'rgba(0, 0, 0, 0.5)',
+    border: '1px solid rgba(255, 0, 0, 0.2)',
+    color: '#ffffff',
+    '&:focus': {
+      border: '1px solid rgba(255, 0, 0, 0.5)',
+    }
+  },
+  label: {
+    color: '#ffffff'
+  }
+};
+
 export const Login: React.FC = () => {
-  const [formData, setFormData] = useState<LoginForm>({
-    email: '',
-    password: ''
+  const navigate = useNavigate();
+  const [error, setError] = useState<string>('');
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+
+  const form = useForm({
+    initialValues: {
+      email: '',
+      password: ''
+    },
+    validate: {
+      email: (value: string) => (/^\S+@\S+$/.test(value) ? null : 'Nieprawidłowy adres email'),
+      password: (value: string) => (value.length >= 6 ? null : 'Hasło musi mieć minimum 6 znaków')
+    }
   });
 
-  const inputStyles = {
-    input: {
-      background: 'rgba(0, 0, 0, 0.5)',
-      border: '1px solid rgba(255, 0, 0, 0.2)',
-      borderRadius: 0,
-      color: 'white',
-      padding: '15px 20px 15px 20px',
-      fontSize: '16px',
-      height: '50px',
-      width: '100%',
-      transition: 'all 0.3s ease',
-      '&:focus': {
-        border: '1px solid rgba(255, 0, 0, 0.5)',
-        boxShadow: '0 0 10px rgba(255, 0, 0, 0.2)'
-      }
-    }
-  };
+  const handleSubmit = async (values: LoginForm) => {
+    try {
+      setError('');
+      setIsLoading(true);
 
-  const buttonBaseStyles = {
-    border: 'none',
-    borderRadius: 0,
-    padding: '10px 30px',
-    height: 45,
-    fontSize: '16px',
-    fontWeight: 600,
-    letterSpacing: '1px',
-    transition: 'all 0.3s ease',
+      const response = await login(values);
+      // TODO: Zapisz token w localStorage lub w bezpiecznym miejscu
+      console.log('Login successful:', response);
+      // TODO: Przekieruj do odpowiedniej strony po zalogowaniu
+    } catch (err) {
+      console.error('Login error:', err);
+      setError(err instanceof Error ? err.message : 'Wystąpił błąd podczas logowania. Spróbuj ponownie.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
     <Box style={{ position: 'relative', minHeight: '100vh' }}>
       <AnimatedBackground />
-      <Box
-        style={{
-          position: 'relative',
-          minHeight: '100vh',
-          width: '100vw',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1
-        }}
-      >
+      <Container size="xs" style={{ height: '100vh', display: 'flex', alignItems: 'center' }}>
         <Box
           style={{
             width: '100%',
-            maxWidth: 450,
             padding: '50px 40px',
             background: 'linear-gradient(135deg, rgba(20, 20, 20, 0.95), rgba(30, 30, 30, 0.9))',
             backdropFilter: 'blur(20px)',
@@ -77,7 +79,7 @@ export const Login: React.FC = () => {
               top: 0,
               left: 0,
               width: '100%',
-              height: '4px',
+              height: 4,
               background: 'linear-gradient(90deg, transparent, #FF0000, transparent)',
             }}
           />
@@ -96,89 +98,71 @@ export const Login: React.FC = () => {
               textShadow: '0 0 20px rgba(255, 0, 0, 0.5)',
             }}
           >
-            partyhub
+            PARTYHUB
           </Title>
 
-          <Box style={{ width: '100%' }}>
+          <form onSubmit={form.onSubmit(handleSubmit)}>
+            {error && (
+              <Text color="red" mb="md" ta="center" style={{ color: '#ff0000' }}>
+                {error}
+              </Text>
+            )}
+
             <TextInput
+              label="Email"
               placeholder="Email"
-              value={formData.email}
-              onChange={(e) => setFormData({...formData, email: e.target.value})}
-              mb={25}
+              {...form.getInputProps('email')}
+              mb="md"
               styles={inputStyles}
             />
 
-            <Box style={{ width: '100%' }}>
             <PasswordInput
+              label="Hasło"
               placeholder="Hasło"
-              value={formData.password}
-              onChange={(e) => setFormData({...formData, password: e.target.value})}
-              mb={40}
-              styles={{
-                ...inputStyles,
-                innerInput: {
-                  color: 'white',
-                  height: '100%',
-                  backgroundColor: 'transparent',
-                  border: 'none',
-                  width: '100%',
-                  paddingRight: '45px'
-                },
-                visibilityToggle: {
-                  position: 'absolute',
-                  right: '20px',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  width: '30px',
-                  height: '30px',
-                  backgroundColor: 'transparent',
-                  border: 'none',
-                  color: '#FF0000',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  zIndex: 2,
-                  opacity: 0.7,
-                  '&:hover': {
-                    opacity: 1
-                  }
-                }
-              }}
-              
+              {...form.getInputProps('password')}
+              mb="xl"
+              styles={inputStyles}
             />
-            </Box>
-          </Box>
               
-          <Flex justify="space-between" align="center">
-            <Button onClick={() => navigate('/register')} 
-              style={{
-                ...buttonBaseStyles,
-                background: 'rgba(255, 0, 0, 0.2)',
-                color: '#FF4444',
-                '&:hover': {
-                  background: 'rgba(255, 0, 0, 0.3)',
-                  color: '#FF0000'
-                }
-              }}
-            >
-              ZAREJESTRUJ
-            </Button>
-            
-            <Button 
-              style={{
-                ...buttonBaseStyles,
-                background: 'linear-gradient(45deg, #FF0000, #FF4444)',
-                '&:hover': {
-                  background: 'linear-gradient(45deg, #FF4444, #FF0000)',
-                  boxShadow: '0 0 20px rgba(255, 0, 0, 0.3)'
-                }
-              }}
-            >
-              ZALOGUJ SIĘ
-            </Button>
-          </Flex>
+            <Container p={0}>
+              <Button 
+                type="submit"
+                fullWidth
+                mb="md"
+                loading={isLoading}
+                styles={() => ({
+                  root: {
+                    background: 'linear-gradient(45deg, #FF0000, #FF4444)',
+                    '&:hover': {
+                      background: 'linear-gradient(45deg, #FF4444, #FF0000)',
+                    }
+                  }
+                })}
+              >
+                ZALOGUJ SIĘ
+              </Button>
+
+              <Button 
+                variant="subtle"
+                fullWidth
+                onClick={() => navigate('/register')}
+                disabled={isLoading}
+                styles={() => ({
+                  root: {
+                    color: '#FF4444',
+                    '&:hover': {
+                      background: 'transparent',
+                      color: '#FF0000'
+                    }
+                  }
+                })}
+              >
+                ZAREJESTRUJ SIĘ
+              </Button>
+            </Container>
+          </form>
         </Box>
-      </Box>
+      </Container>
     </Box>
   );
 };
