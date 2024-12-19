@@ -47,9 +47,13 @@ export const Login: React.FC = () => {
       setIsLoading(true);
 
       const response = await login(values);
-      // TODO: Zapisz token w localStorage lub w bezpiecznym miejscu
-      console.log('Login successful:', response);
-      // TODO: Przekieruj do odpowiedniej strony po zalogowaniu
+      
+      if (response.token) {
+        localStorage.setItem('authToken', response.token);
+        navigate('/dashboard');
+      } else {
+        throw new Error('Nie otrzymano tokenu uwierzytelniającego');
+      }
     } catch (err) {
       console.error('Login error:', err);
       setError(err instanceof Error ? err.message : 'Wystąpił błąd podczas logowania. Spróbuj ponownie.');

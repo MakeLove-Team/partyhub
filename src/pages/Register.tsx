@@ -1,16 +1,18 @@
 // src/pages/Register.tsx
-import { TextInput, PasswordInput, Button, Box, Title, Text, Container } from '@mantine/core';
+import { TextInput, PasswordInput, Button, Box, Title, Text, Container, Select } from '@mantine/core';
 import { AnimatedBackground } from '../components/AnimatedBackground';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from '@mantine/form';
 import { register } from '../api/auth';
+import { UserRole } from '../models/User';
 
 interface RegisterForm {
   email: string;
   password: string;
   confirmPassword: string;
   username: string;
+  role: UserRole;
 }
 
 const inputStyles = {
@@ -24,7 +26,18 @@ const inputStyles = {
   },
   label: {
     color: '#ffffff'
-  }
+  },
+  item: {
+    '&[data-selected]': {
+      '&, &:hover': {
+        backgroundColor: '#FF0000',
+        color: '#ffffff',
+      },
+    },
+    '&[data-hovered]': {
+      backgroundColor: 'rgba(255, 0, 0, 0.1)',
+    },
+  },
 };
 
 export const Register: React.FC = () => {
@@ -37,7 +50,8 @@ export const Register: React.FC = () => {
       email: '',
       password: '',
       confirmPassword: '',
-      username: ''
+      username: '',
+      role: 'user' as UserRole
     },
     validate: {
       email: (value: string) => (/^\S+@\S+$/.test(value) ? null : 'Nieprawidłowy adres email'),
@@ -50,6 +64,9 @@ export const Register: React.FC = () => {
       confirmPassword: (value: string, values: RegisterForm) => (
         value === values.password ? null : 'Hasła nie są identyczne'
       ),
+      role: (value: string) => (
+        ['user', 'club'].includes(value) ? null : 'Wybierz prawidłową rolę'
+      ),
     }
   });
 
@@ -61,7 +78,8 @@ export const Register: React.FC = () => {
       await register({
         username: values.username,
         email: values.email,
-        password: values.password
+        password: values.password,
+        role: values.role
       });
 
       navigate('/');
@@ -151,6 +169,18 @@ export const Register: React.FC = () => {
               label="Powtórz hasło"
               placeholder="Powtórz hasło"
               {...form.getInputProps('confirmPassword')}
+              mb="md"
+              styles={inputStyles}
+            />
+
+            <Select
+              label="Typ konta"
+              placeholder="Wybierz typ konta"
+              data={[
+                { value: 'user', label: 'Użytkownik' },
+                { value: 'club', label: 'Klub' }
+              ]}
+              {...form.getInputProps('role')}
               mb="xl"
               styles={inputStyles}
             />

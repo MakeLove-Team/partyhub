@@ -2,6 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 const dotenv = require('dotenv');
 const path = require('path');
 
@@ -10,12 +11,13 @@ dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
 const app = express();
 const port = 3001;
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key'; // Should be in .env
 
 // Enhanced CORS configuration
 app.use(cors({
   origin: 'http://localhost:1420', // Tauri app's development port
   methods: ['GET', 'POST'],
-  allowedHeaders: ['Content-Type'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
 }));
 
@@ -25,13 +27,12 @@ app.use(express.json());
 const connectToMongoDB = async () => {
   try {
     await mongoose.connect(process.env.MONGODB_URI, {
-      serverSelectionTimeoutMS: 5000, // Timeout after 5s instead of 30s
-      socketTimeoutMS: 45000, // Close sockets after 45s of inactivity
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000,
     });
     console.log('Connected to MongoDB');
   } catch (err) {
     console.error('MongoDB connection error:', err);
-    // Retry connection after 5 seconds
     setTimeout(connectToMongoDB, 5000);
   }
 };
@@ -52,10 +53,29 @@ mongoose.connection.on('disconnected', () => {
 const userSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true },
   email: { type: String, required: true, unique: true },
-  password: { type: String, required: true }
+  password: { type: String, required: true },
+  role: { type: String, enum: ['user', 'club', 'admin'], default: 'user' }
 });
 
 const User = mongoose.model('User', userSchema);
+
+// Middleware to verify JWT token
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({ message: 'Brak tokenu uwierzytelniającego' });
+  }
+
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (err) {
+      return res.status(403).json({ message: 'Nieprawidłowy token' });
+    }
+    req.user = user;
+    next();
+  });
+};
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -65,7 +85,7 @@ app.get('/api/health', (req, res) => {
 // Routes
 app.post('/api/auth/register', async (req, res) => {
   try {
-    const { username, email, password } = req.body;
+    const { username, email, password, role = 'user' } = req.body;
 
     // Validate MongoDB connection
     if (mongoose.connection.readyState !== 1) {
@@ -75,6 +95,11 @@ app.post('/api/auth/register', async (req, res) => {
     // Input validation
     if (!username || !email || !password) {
       return res.status(400).json({ message: 'Wszystkie pola są wymagane' });
+    }
+
+    // Validate role
+    if (!['user', 'club'].includes(role)) {
+      return res.status(400).json({ message: 'Nieprawidłowa rola' });
     }
 
     // Check if user already exists
@@ -90,12 +115,29 @@ app.post('/api/auth/register', async (req, res) => {
     const user = new User({
       username,
       email,
-      password: hashedPassword
+      password: hashedPassword,
+      role
     });
 
     await user.save();
 
-    res.status(201).json({ message: 'Rejestracja zakończona sukcesem' });
+    // Generate token
+    const token = jwt.sign(
+      { id: user._id, username: user.username, role: user.role },
+      JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    res.status(201).json({
+      message: 'Rejestracja zakończona sukcesem',
+      token,
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        role: user.role
+      }
+    });
   } catch (error) {
     console.error('Registration error:', error);
     if (error.name === 'MongoServerError' && error.code === 11000) {
@@ -131,17 +173,39 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(400).json({ message: 'Nieprawidłowy email lub hasło' });
     }
 
-    res.json({ 
+    // Generate token
+    const token = jwt.sign(
+      { id: user._id, username: user.username, role: user.role },
+      JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    res.json({
       message: 'Logowanie zakończone sukcesem',
+      token,
       user: {
         id: user._id,
         username: user.username,
-        email: user.email
+        email: user.email,
+        role: user.role
       }
     });
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ message: 'Błąd serwera podczas logowania. Spróbuj ponownie za chwilę.' });
+  }
+});
+
+// Protected route example
+app.get('/api/user/profile', authenticateToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select('-password');
+    if (!user) {
+      return res.status(404).json({ message: 'Użytkownik nie znaleziony' });
+    }
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ message: 'Błąd serwera' });
   }
 });
 

@@ -1,10 +1,13 @@
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 
+export type UserRole = 'user' | 'club' | 'admin';
+
 export interface IUser extends mongoose.Document {
   username: string;
   email: string;
   password: string;
+  role: UserRole;
   comparePassword(candidatePassword: string): Promise<boolean>;
 }
 
@@ -25,6 +28,11 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Hasło jest wymagane'],
     minlength: [6, 'Hasło musi mieć minimum 6 znaków']
+  },
+  role: {
+    type: String,
+    enum: ['user', 'club', 'admin'],
+    default: 'user'
   }
 }, {
   timestamps: true

@@ -1,0 +1,48 @@
+.dashboardContainer {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+  color: white;
+  padding: 20px 0;
+}
+
+.dashboardContainer :global(.mantine-Card-root) {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.dashboardContainer :global(.mantine-Card-root:hover) {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(255, 0, 0, 0.1);
+}
+
+.dashboardContainer :global(.mantine-Title-root) {
+  color: white;
+}
+
+.dashboardContainer :global(.mantine-Text-root) {
+  color: #cccccc;
+}
+
+.dashboardContainer :global(.mantine-Button-root) {
+  transition: all 0.3s ease;
+}
+
+.dashboardContainer :global(.mantine-Button-filled) {
+  background: linear-gradient(45deg, #FF0000, #FF4444);
+}
+
+.dashboardContainer :global(.mantine-Button-filled:hover) {
+  background: linear-gradient(45deg, #FF4444, #FF0000);
+  transform: translateY(-1px);
+}
+
+.dashboardContainer :global(.mantine-Button-light) {
+  color: #FF4444;
+  border-color: rgba(255, 0, 0, 0.2);
+}
+
+.dashboardContainer :global(.mantine-Button-light:hover) {
+  background: rgba(255, 0, 0, 0.1);
+  border-color: rgba(255, 0, 0, 0.3);
+}
