@@ -13,14 +13,28 @@ const app = express();
 const port = 3001;
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
+// Enhanced CORS configuration
 app.use(cors({
   origin: ['http://localhost:1420', 'http://localhost:5173'],
-  methods: ['GET', 'POST'],
+  methods: ['GET', 'POST', 'PUT', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true
+  exposedHeaders: ['Authorization'],
+  credentials: true,
+  preflightContinue: false,
+  optionsSuccessStatus: 204
 }));
 
-app.use(express.json());
+// Handle preflight requests
+app.options('*', cors());
+
+// Parse JSON with larger limit and better error handling
+app.use(express.json({ limit: '10mb' }));
+app.use((err, req, res, next) => {
+  if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
+    return res.status(400).json({ message: 'Nieprawidłowy format danych' });
+  }
+  next();
+});
 
 const connectToMongoDB = async () => {
   try {
@@ -55,7 +69,6 @@ const userSchema = new mongoose.Schema({
   authToken: { type: String, default: null }
 });
 
-// Add method to generate token
 userSchema.methods.generateAuthToken = function() {
   const token = jwt.sign(
     { id: this._id, username: this.username, role: this.role },
@@ -68,7 +81,62 @@ userSchema.methods.generateAuthToken = function() {
 
 const User = mongoose.model('User', userSchema);
 
-// Middleware to verify JWT token
+// Club Verification Schema
+const clubVerificationSchema = new mongoose.Schema({
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  clubName: {
+    type: String,
+    required: true,
+    minlength: 3
+  },
+  address: {
+    type: String,
+    required: true
+  },
+  nip: {
+    type: String,
+    required: true,
+    match: /^\d{10}$/
+  },
+  regon: {
+    type: String,
+    required: true,
+    match: /^\d{9}$/
+  },
+  description: {
+    type: String,
+    required: true,
+    minlength: 10
+  },
+  openingHours: {
+    type: String,
+    required: true
+  },
+  phoneNumber: {
+    type: String,
+    required: true,
+    match: /^\d{9}$/
+  },
+  status: {
+    type: String,
+    enum: ['pending', 'approved', 'rejected'],
+    default: 'pending'
+  },
+  submittedAt: {
+    type: Date,
+    default: Date.now
+  },
+  reviewedAt: Date,
+  reviewNotes: String
+});
+
+const ClubVerification = mongoose.model('ClubVerification', clubVerificationSchema);
+
+// Enhanced token verification middleware
 const authenticateToken = async (req, res, next) => {
   try {
     const authHeader = req.headers['authorization'];
@@ -78,47 +146,53 @@ const authenticateToken = async (req, res, next) => {
       return res.status(401).json({ message: 'Brak tokenu uwierzytelniającego' });
     }
 
-    const decoded = jwt.verify(token, JWT_SECRET);
-    const user = await User.findOne({ _id: decoded.id, authToken: token });
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET);
+      const user = await User.findOne({ _id: decoded.id, authToken: token });
 
-    if (!user) {
+      if (!user) {
+        return res.status(403).json({ message: 'Nieprawidłowy token' });
+      }
+
+      req.user = decoded;
+      next();
+    } catch (jwtError) {
+      if (jwtError.name === 'TokenExpiredError') {
+        return res.status(401).json({ message: 'Token wygasł' });
+      }
       return res.status(403).json({ message: 'Nieprawidłowy token' });
     }
-
-    req.user = decoded;
-    next();
   } catch (error) {
     console.error('Token verification error:', error);
-    return res.status(403).json({ message: 'Nieprawidłowy token' });
+    return res.status(500).json({ message: 'Błąd serwera podczas weryfikacji tokenu' });
   }
 };
 
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', mongoConnection: mongoose.connection.readyState === 1 });
-});
+const isAdmin = (req, res, next) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ message: 'Brak uprawnień' });
+  }
+  next();
+};
 
+// Authentication endpoints
 app.post('/api/auth/register', async (req, res) => {
   try {
     const { username, email, password, role = 'user' } = req.body;
 
-    if (mongoose.connection.readyState !== 1) {
-      return res.status(503).json({ message: 'Serwer tymczasowo niedostępny' });
-    }
-
-    if (!username || !email || !password) {
-      return res.status(400).json({ message: 'Wszystkie pola są wymagane' });
-    }
-
-    if (!['user', 'club'].includes(role)) {
-      return res.status(400).json({ message: 'Nieprawidłowa rola' });
-    }
-
+    // Check if user already exists
     const existingUser = await User.findOne({ $or: [{ email }, { username }] });
     if (existingUser) {
-      return res.status(400).json({ message: 'Użytkownik z tym emailem lub nazwą już istnieje' });
+      return res.status(400).json({ 
+        message: 'Użytkownik o podanym adresie email lub nazwie już istnieje' 
+      });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // Hash password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    // Create new user
     const user = new User({
       username,
       email,
@@ -126,18 +200,12 @@ app.post('/api/auth/register', async (req, res) => {
       role
     });
 
-    // Generate and save token
+    // Generate auth token
     const token = user.generateAuthToken();
     await user.save();
 
-    console.log('User registered successfully:', {
-      id: user._id,
-      username: user.username,
-      token: token
-    });
-
     res.status(201).json({
-      message: 'Rejestracja zakończona sukcesem',
+      message: 'Rejestracja zakończona pomyślnie',
       token,
       user: {
         id: user._id,
@@ -148,10 +216,7 @@ app.post('/api/auth/register', async (req, res) => {
     });
   } catch (error) {
     console.error('Registration error:', error);
-    if (error.name === 'MongoServerError' && error.code === 11000) {
-      return res.status(400).json({ message: 'Użytkownik z tym emailem lub nazwą już istnieje' });
-    }
-    res.status(500).json({ message: 'Błąd serwera podczas rejestracji' });
+    res.status(500).json({ message: 'Błąd podczas rejestracji' });
   }
 });
 
@@ -159,36 +224,24 @@ app.post('/api/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    if (mongoose.connection.readyState !== 1) {
-      return res.status(503).json({ message: 'Serwer tymczasowo niedostępny' });
-    }
-
-    if (!email || !password) {
-      return res.status(400).json({ message: 'Wszystkie pola są wymagane' });
-    }
-
+    // Find user
     const user = await User.findOne({ email });
     if (!user) {
-      return res.status(400).json({ message: 'Nieprawidłowy email lub hasło' });
+      return res.status(401).json({ message: 'Nieprawidłowy email lub hasło' });
     }
 
-    const isValidPassword = await bcrypt.compare(password, user.password);
-    if (!isValidPassword) {
-      return res.status(400).json({ message: 'Nieprawidłowy email lub hasło' });
+    // Verify password
+    const validPassword = await bcrypt.compare(password, user.password);
+    if (!validPassword) {
+      return res.status(401).json({ message: 'Nieprawidłowy email lub hasło' });
     }
 
-    // Generate and save new token
+    // Generate new token
     const token = user.generateAuthToken();
     await user.save();
 
-    console.log('User logged in successfully:', {
-      id: user._id,
-      username: user.username,
-      token: token
-    });
-
     res.json({
-      message: 'Logowanie zakończone sukcesem',
+      message: 'Logowanie zakończone pomyślnie',
       token,
       user: {
         id: user._id,
@@ -199,7 +252,7 @@ app.post('/api/auth/login', async (req, res) => {
     });
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({ message: 'Błąd serwera podczas logowania' });
+    res.status(500).json({ message: 'Błąd podczas logowania' });
   }
 });
 
@@ -209,28 +262,118 @@ app.post('/api/auth/logout', authenticateToken, async (req, res) => {
     if (user) {
       user.authToken = null;
       await user.save();
-      console.log('User logged out successfully:', user._id);
     }
     res.json({ message: 'Wylogowano pomyślnie' });
   } catch (error) {
     console.error('Logout error:', error);
-    res.status(500).json({ message: 'Błąd serwera podczas wylogowywania' });
+    res.status(500).json({ message: 'Błąd podczas wylogowywania' });
   }
 });
 
-app.get('/api/user/profile', authenticateToken, async (req, res) => {
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    mongoConnection: mongoose.connection.readyState === 1,
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Club Verification Endpoints with enhanced error handling
+app.post('/api/club-verification', authenticateToken, async (req, res) => {
   try {
-    const user = await User.findById(req.user.id).select('-password -authToken');
-    if (!user) {
-      return res.status(404).json({ message: 'Użytkownik nie znaleziony' });
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({ message: 'Baza danych jest tymczasowo niedostępna' });
     }
-    res.json(user);
+
+    const verification = new ClubVerification({
+      userId: req.user.id,
+      ...req.body
+    });
+
+    try {
+      await verification.save();
+    } catch (validationError) {
+      if (validationError.name === 'ValidationError') {
+        const errors = Object.values(validationError.errors).map(err => err.message);
+        return res.status(400).json({ 
+          message: 'Błąd walidacji danych',
+          errors 
+        });
+      }
+      throw validationError;
+    }
+
+    res.status(201).json({
+      message: 'Wniosek o weryfikację klubu został wysłany',
+      verification
+    });
   } catch (error) {
-    console.error('Profile fetch error:', error);
-    res.status(500).json({ message: 'Błąd serwera' });
+    console.error('Club verification submission error:', error);
+    res.status(500).json({ message: 'Błąd podczas wysyłania wniosku o weryfikację' });
   }
 });
 
+// Get verification status for current user
+app.get('/api/club-verification/status', authenticateToken, async (req, res) => {
+  try {
+    const verification = await ClubVerification.findOne({ userId: req.user.id })
+      .sort({ submittedAt: -1 });
+    
+    if (!verification) {
+      return res.status(404).json({ message: 'Nie znaleziono wniosku o weryfikację' });
+    }
+
+    res.json(verification);
+  } catch (error) {
+    console.error('Club verification status error:', error);
+    res.status(500).json({ message: 'Błąd podczas pobierania statusu weryfikacji' });
+  }
+});
+
+// Admin endpoints
+app.get('/api/admin/verifications', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const verifications = await ClubVerification.find()
+      .populate('userId', 'username email')
+      .sort({ submittedAt: -1 });
+    
+    res.json(verifications);
+  } catch (error) {
+    console.error('Admin verifications fetch error:', error);
+    res.status(500).json({ message: 'Błąd podczas pobierania wniosków o weryfikację' });
+  }
+});
+
+app.put('/api/admin/verifications/:id', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const { status, reviewNotes } = req.body;
+    const verification = await ClubVerification.findById(req.params.id);
+    
+    if (!verification) {
+      return res.status(404).json({ message: 'Nie znaleziono wniosku o weryfikację' });
+    }
+
+    verification.status = status;
+    verification.reviewNotes = reviewNotes;
+    verification.reviewedAt = new Date();
+    await verification.save();
+
+    if (status === 'approved') {
+      await User.findByIdAndUpdate(verification.userId, { role: 'club' });
+    }
+
+    res.json({
+      message: 'Status weryfikacji został zaktualizowany',
+      verification
+    });
+  } catch (error) {
+    console.error('Admin verification update error:', error);
+    res.status(500).json({ message: 'Błąd podczas aktualizacji statusu weryfikacji' });
+  }
+});
+
+// Global error handler
 app.use((err, req, res, next) => {
   console.error('Server error:', err);
   res.status(500).json({ message: 'Wystąpił błąd serwera' });

@@ -8,6 +8,8 @@ import { Dashboard } from './pages/Dashboard';
 import { UserDashboard } from './pages/dashboards/UserDashboard';
 import { ClubDashboard } from './pages/dashboards/ClubDashboard';
 import { AdminDashboard } from './pages/dashboards/AdminDashboard';
+import { ClubVerificationForm } from './components/ClubVerificationForm';
+import { PendingVerification } from './pages/PendingVerification';
 import theme from './theme';
 import { useState, useEffect } from 'react';
 
@@ -109,6 +111,22 @@ const App = () => {
               element={
                 <ProtectedRoute allowedRoles={['admin']}>
                   <AdminDashboard />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/club-verification" 
+              element={
+                <ProtectedRoute allowedRoles={['user']}>
+                  <ClubVerificationForm />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/pending-verification" 
+              element={
+                <ProtectedRoute allowedRoles={['user']}>
+                  <PendingVerification />
                 </ProtectedRoute>
               } 
             />

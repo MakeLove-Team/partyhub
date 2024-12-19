@@ -75,18 +75,23 @@ export const Register: React.FC = () => {
       setError('');
       setIsLoading(true);
 
-      await register({
+      const response = await register({
         username: values.username,
         email: values.email,
         password: values.password,
-        role: values.role
+        role: values.role === 'club' ? 'user' : values.role // Initially register club as user
       });
 
-      // Redirect based on role
-      if (values.role === 'user') {
+      if (values.role === 'club') {
+        // Store registration data in session storage for the verification form
+        sessionStorage.setItem('pendingClubRegistration', JSON.stringify({
+          userId: response.user.id,
+          email: values.email,
+          username: values.username
+        }));
+        navigate('/club-verification');
+      } else {
         navigate('/dashboard/user');
-      } else if (values.role === 'club') {
-        navigate('/dashboard/club');
       }
     } catch (err) {
       console.error('Registration error:', err);

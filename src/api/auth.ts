@@ -28,6 +28,11 @@ const setToken = (token: string) => {
   localStorage.setItem('authToken', token);
 };
 
+// Store user data in localStorage
+const setUserData = (user: AuthResponse['user']) => {
+  localStorage.setItem('userData', JSON.stringify(user));
+};
+
 // Get token from localStorage
 export const getToken = () => {
   return localStorage.getItem('authToken');
@@ -36,6 +41,7 @@ export const getToken = () => {
 // Remove token from localStorage
 export const removeToken = () => {
   localStorage.removeItem('authToken');
+  localStorage.removeItem('userData');
 };
 
 export const register = async (data: RegisterData): Promise<AuthResponse> => {
@@ -59,6 +65,7 @@ export const register = async (data: RegisterData): Promise<AuthResponse> => {
 
     const responseData = await response.json();
     setToken(responseData.token);
+    setUserData(responseData.user);
     return responseData;
   } catch (error) {
     if (error instanceof Error) {
@@ -92,6 +99,7 @@ export const login = async (data: LoginData): Promise<AuthResponse> => {
 
     const responseData = await response.json();
     setToken(responseData.token);
+    setUserData(responseData.user);
     return responseData;
   } catch (error) {
     if (error instanceof Error) {
@@ -112,12 +120,12 @@ export const isAuthenticated = (): boolean => {
 
 // Function to get user role from token
 export const getUserRole = (): UserRole | null => {
-  const token = getToken();
-  if (!token) return null;
+  const userDataStr = localStorage.getItem('userData');
+  if (!userDataStr) return null;
   
   try {
-    const payload = JSON.parse(atob(token.split('.')[1]));
-    return payload.role;
+    const userData = JSON.parse(userDataStr);
+    return userData.role;
   } catch {
     return null;
   }
