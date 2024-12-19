@@ -123,8 +123,23 @@ export const getUserRole = (): UserRole | null => {
   }
 };
 
-// Logout function
-export const logout = () => {
-  removeToken();
-  window.location.href = '/login';
+// Logout function with server call
+export const logout = async () => {
+  try {
+    const token = getToken();
+    if (token) {
+      await fetch('http://localhost:3001/api/auth/logout', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+    }
+  } catch (error) {
+    console.error('Logout error:', error);
+  } finally {
+    removeToken();
+    window.location.href = '/login';
+  }
 };

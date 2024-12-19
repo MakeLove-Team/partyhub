@@ -82,7 +82,12 @@ export const Register: React.FC = () => {
         role: values.role
       });
 
-      navigate('/');
+      // Redirect based on role
+      if (values.role === 'user') {
+        navigate('/dashboard/user');
+      } else if (values.role === 'club') {
+        navigate('/dashboard/club');
+      }
     } catch (err) {
       console.error('Registration error:', err);
       setError(err instanceof Error ? err.message : 'Wystąpił błąd podczas rejestracji. Spróbuj ponownie.');

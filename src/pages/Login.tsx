@@ -48,11 +48,27 @@ export const Login: React.FC = () => {
 
       const response = await login(values);
       
-      if (response.token) {
+      if (response.token && response.user) {
+        // Store both token and user data
         localStorage.setItem('authToken', response.token);
-        navigate('/dashboard');
+        localStorage.setItem('userData', JSON.stringify(response.user));
+        
+        // Redirect based on user role
+        switch (response.user.role) {
+          case 'user':
+            navigate('/dashboard/user');
+            break;
+          case 'club':
+            navigate('/dashboard/club');
+            break;
+          case 'admin':
+            navigate('/dashboard/admin');
+            break;
+          default:
+            navigate('/dashboard');
+        }
       } else {
-        throw new Error('Nie otrzymano tokenu uwierzytelniającego');
+        throw new Error('Nie otrzymano tokenu uwierzytelniającego lub danych użytkownika');
       }
     } catch (err) {
       console.error('Login error:', err);

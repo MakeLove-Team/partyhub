@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 
 export type UserRole = 'user' | 'club' | 'admin';
 
@@ -8,7 +9,9 @@ export interface IUser extends mongoose.Document {
   email: string;
   password: string;
   role: UserRole;
+  authToken?: string;
   comparePassword(candidatePassword: string): Promise<boolean>;
+  generateAuthToken(): string;
 }
 
 const userSchema = new mongoose.Schema({
@@ -33,6 +36,9 @@ const userSchema = new mongoose.Schema({
     type: String,
     enum: ['user', 'club', 'admin'],
     default: 'user'
+  },
+  authToken: {
+    type: String
   }
 }, {
   timestamps: true
@@ -58,6 +64,21 @@ userSchema.methods.comparePassword = async function(candidatePassword: string): 
   } catch (error) {
     throw error;
   }
+};
+
+// Metoda do generowania tokenu uwierzytelniającego
+userSchema.methods.generateAuthToken = function(): string {
+  const token = jwt.sign(
+    { 
+      _id: this._id,
+      username: this.username,
+      role: this.role 
+    },
+    process.env.JWT_SECRET || 'defaultsecret',
+    { expiresIn: '24h' }
+  );
+  this.authToken = token;
+  return token;
 };
 
 export const User = mongoose.model<IUser>('User', userSchema);
