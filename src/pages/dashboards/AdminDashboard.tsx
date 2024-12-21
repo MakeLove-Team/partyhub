@@ -80,10 +80,12 @@ export const AdminDashboard = () => {
         </Tabs.Panel>
 
         <Tabs.Panel value="verifications">
-          <Card shadow="sm" p="lg" mt="md">
-            <Title order={3} mb="xl">Weryfikacje Klubów</Title>
-            <ClubVerificationManagement />
-          </Card>
+          <div style={{ position: 'static' }}>
+            <Card shadow="sm" p="lg" mt="md" style={{ position: 'relative' }}>
+              <Title order={3} mb="xl">Weryfikacje Klubów</Title>
+              <ClubVerificationManagement />
+            </Card>
+          </div>
         </Tabs.Panel>
       </Tabs>
     </Container>

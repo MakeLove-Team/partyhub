@@ -3,7 +3,6 @@ import {
   Table,
   Button,
   Text,
-  Modal,
   Stack,
   Badge,
   Group,
@@ -12,8 +11,9 @@ import {
   Textarea,
   Container,
   LoadingOverlay,
+  Title,
 } from '@mantine/core';
-import { useDisclosure } from '@mantine/hooks';
+import { modals } from '@mantine/modals';
 import { notifications } from '@mantine/notifications';
 import { API_URL } from '../config/api';
 
@@ -24,6 +24,7 @@ interface ClubVerification {
     email: string;
     username: string;
   };
+  clubId?: string;
   clubName: string;
   address: string;
   nip: string;
@@ -41,7 +42,6 @@ export const ClubVerificationManagement: React.FC = () => {
   const [verifications, setVerifications] = useState<ClubVerification[]>([]);
   const [selectedVerification, setSelectedVerification] = useState<ClubVerification | null>(null);
   const [reviewNotes, setReviewNotes] = useState('');
-  const [opened, { open, close }] = useDisclosure(false);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
 
@@ -53,6 +53,7 @@ export const ClubVerificationManagement: React.FC = () => {
         throw new Error('Brak tokenu uwierzytelniającego');
       }
 
+      console.log('Fetching verifications...');
       const response = await fetch(`${API_URL}/admin/verifications`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -61,13 +62,21 @@ export const ClubVerificationManagement: React.FC = () => {
         }
       });
 
+      console.log('Response status:', response.status);
+      const data = await response.json();
+      console.log('Fetched data:', data);
+
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to fetch verifications');
+        throw new Error(data.message || 'Failed to fetch verifications');
       }
 
-      const data = await response.json();
+      if (!Array.isArray(data)) {
+        console.error('Unexpected data format:', data);
+        throw new Error('Nieprawidłowy format danych');
+      }
+
       setVerifications(data);
+      console.log('Verifications set:', data.length, 'items');
     } catch (error) {
       console.error('Error fetching verifications:', error);
       notifications.show({
@@ -81,14 +90,127 @@ export const ClubVerificationManagement: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchVerifications();
+    console.log('Component mounted, fetching verifications...');
+    fetchVerifications().catch(error => {
+      console.error('Error in useEffect:', error);
+    });
   }, []);
 
+  useEffect(() => {
+    console.log('Verifications updated:', verifications.length, 'items');
+  }, [verifications]);
+
   const handleViewDetails = (verification: ClubVerification) => {
+    console.log('Opening details for:', verification);
     setSelectedVerification(verification);
     setReviewNotes(verification.reviewNotes || '');
-    open();
+    
+    modals.open({
+      title: "Szczegóły Weryfikacji Klubu",
+      size: "lg",
+      centered: true,
+      children: (
+        <>
+          <LoadingOverlay visible={actionLoading} overlayProps={{ blur: 2 }} />
+          <Stack>
+            <Box>
+              <Text fw={700}>Nazwa Klubu</Text>
+              <Text>{verification.clubName}</Text>
+            </Box>
+            <Box>
+              <Text fw={700}>Użytkownik</Text>
+              <Text>
+                {verification.userId.username} ({verification.userId.email})
+              </Text>
+            </Box>
+            <Box>
+              <Text fw={700}>Adres</Text>
+              <Text>{verification.address}</Text>
+            </Box>
+            <Box>
+              <Text fw={700}>NIP</Text>
+              <Text>{verification.nip}</Text>
+            </Box>
+            <Box>
+              <Text fw={700}>REGON</Text>
+              <Text>{verification.regon}</Text>
+            </Box>
+            <Box>
+              <Text fw={700}>Numer Telefonu</Text>
+              <Text>{verification.phoneNumber}</Text>
+            </Box>
+            <Box>
+              <Text fw={700}>Opis</Text>
+              <Text>{verification.description}</Text>
+            </Box>
+            <Box>
+              <Text fw={700}>Godziny Otwarcia</Text>
+              <Text>{verification.openingHours}</Text>
+            </Box>
+            <Box>
+              <Text fw={700}>Status</Text>
+              <Badge color={getStatusColor(verification.status)}>
+                {getStatusText(verification.status)}
+              </Badge>
+            </Box>
+            {verification.status === 'approved' && verification.clubId && (
+              <Box>
+                <Text fw={700}>ID Klubu</Text>
+                <Text>{verification.clubId}</Text>
+              </Box>
+            )}
+            {verification.status === 'pending' && (
+              <>
+                <Box>
+                  <Text fw={700} mb="xs">Notatki do Weryfikacji</Text>
+                  <Textarea
+                    value={reviewNotes}
+                    onChange={(event: React.ChangeEvent<HTMLTextAreaElement>) => 
+                      setReviewNotes(event.currentTarget.value)
+                    }
+                    placeholder="Dodaj notatki do weryfikacji..."
+                    minRows={3}
+                  />
+                </Box>
+                <Group justify="flex-end" mt="md">
+                  <Button
+                    color="green"
+                    onClick={() => handleAction(verification._id, 'approved')}
+                    loading={actionLoading}
+                  >
+                    Zatwierdź
+                  </Button>
+                  <Button
+                    color="red"
+                    onClick={() => handleAction(verification._id, 'rejected')}
+                    loading={actionLoading}
+                  >
+                    Odrzuć
+                  </Button>
+                </Group>
+              </>
+            )}
+            {verification.reviewedAt && (
+              <Box>
+                <Text fw={700}>Data Weryfikacji</Text>
+                <Text>{new Date(verification.reviewedAt).toLocaleString()}</Text>
+              </Box>
+            )}
+            {verification.reviewNotes && (
+              <Box>
+                <Text fw={700}>Notatki</Text>
+                <Text>{verification.reviewNotes}</Text>
+              </Box>
+            )}
+          </Stack>
+        </>
+      ),
+    });
   };
+
+  useEffect(() => {
+    console.log('Selected verification:', selectedVerification);
+  }, [selectedVerification]);
 
   const handleAction = async (id: string, status: 'approved' | 'rejected') => {
     setActionLoading(true);
@@ -124,7 +246,7 @@ export const ClubVerificationManagement: React.FC = () => {
       });
 
       await fetchVerifications();
-      close();
+      modals.closeAll();
     } catch (error) {
       console.error(`Error ${status}ing club:`, error);
       notifications.show({
@@ -164,7 +286,14 @@ export const ClubVerificationManagement: React.FC = () => {
       </Table.Td>
       <Table.Td>{new Date(verification.submittedAt).toLocaleDateString()}</Table.Td>
       <Table.Td>
-        <Button variant="light" onClick={() => handleViewDetails(verification)}>
+        <Button 
+          variant="light" 
+          onClick={(e) => {
+            e.stopPropagation();
+            console.log('Button clicked');
+            handleViewDetails(verification);
+          }}
+        >
           Szczegóły
         </Button>
       </Table.Td>
@@ -172,7 +301,7 @@ export const ClubVerificationManagement: React.FC = () => {
   ));
 
   return (
-    <Container size="xl" pos="relative">
+    <Container size="xl">
       <LoadingOverlay visible={loading} overlayProps={{ blur: 2 }} />
       <ScrollArea>
         <Table>
@@ -189,101 +318,6 @@ export const ClubVerificationManagement: React.FC = () => {
         </Table>
       </ScrollArea>
 
-      <Modal 
-        opened={opened} 
-        onClose={close} 
-        size="lg"
-        title="Szczegóły Weryfikacji Klubu"
-      >
-        <LoadingOverlay visible={actionLoading} overlayProps={{ blur: 2 }} />
-        {selectedVerification && (
-          <Stack>
-            <Box>
-              <Text fw={700}>Nazwa Klubu</Text>
-              <Text>{selectedVerification.clubName}</Text>
-            </Box>
-            <Box>
-              <Text fw={700}>Użytkownik</Text>
-              <Text>
-                {selectedVerification.userId.username} ({selectedVerification.userId.email})
-              </Text>
-            </Box>
-            <Box>
-              <Text fw={700}>Adres</Text>
-              <Text>{selectedVerification.address}</Text>
-            </Box>
-            <Box>
-              <Text fw={700}>NIP</Text>
-              <Text>{selectedVerification.nip}</Text>
-            </Box>
-            <Box>
-              <Text fw={700}>REGON</Text>
-              <Text>{selectedVerification.regon}</Text>
-            </Box>
-            <Box>
-              <Text fw={700}>Numer Telefonu</Text>
-              <Text>{selectedVerification.phoneNumber}</Text>
-            </Box>
-            <Box>
-              <Text fw={700}>Opis</Text>
-              <Text>{selectedVerification.description}</Text>
-            </Box>
-            <Box>
-              <Text fw={700}>Godziny Otwarcia</Text>
-              <Text>{selectedVerification.openingHours}</Text>
-            </Box>
-            <Box>
-              <Text fw={700}>Status</Text>
-              <Badge color={getStatusColor(selectedVerification.status)}>
-                {getStatusText(selectedVerification.status)}
-              </Badge>
-            </Box>
-            {selectedVerification.status === 'pending' && (
-              <>
-                <Box>
-                  <Text fw={700} mb="xs">Notatki do Weryfikacji</Text>
-                  <Textarea
-                    value={reviewNotes}
-                    onChange={(event: React.ChangeEvent<HTMLTextAreaElement>) => 
-                      setReviewNotes(event.currentTarget.value)
-                    }
-                    placeholder="Dodaj notatki do weryfikacji..."
-                    minRows={3}
-                  />
-                </Box>
-                <Group justify="flex-end" mt="md">
-                  <Button
-                    color="green"
-                    onClick={() => handleAction(selectedVerification._id, 'approved')}
-                    loading={actionLoading}
-                  >
-                    Zatwierdź
-                  </Button>
-                  <Button
-                    color="red"
-                    onClick={() => handleAction(selectedVerification._id, 'rejected')}
-                    loading={actionLoading}
-                  >
-                    Odrzuć
-                  </Button>
-                </Group>
-              </>
-            )}
-            {selectedVerification.reviewedAt && (
-              <Box>
-                <Text fw={700}>Data Weryfikacji</Text>
-                <Text>{new Date(selectedVerification.reviewedAt).toLocaleString()}</Text>
-              </Box>
-            )}
-            {selectedVerification.reviewNotes && (
-              <Box>
-                <Text fw={700}>Notatki</Text>
-                <Text>{selectedVerification.reviewNotes}</Text>
-              </Box>
-            )}
-          </Stack>
-        )}
-      </Modal>
     </Container>
   );
 };

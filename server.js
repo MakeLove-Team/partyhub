@@ -95,11 +95,25 @@ if (mongoose.connection) {
     return token;
   };
 
-  const clubVerificationSchema = new mongoose.Schema({
+const generateClubId = () => {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let id = 'CLUB-';
+  for (let i = 0; i < 5; i++) {
+    id += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return id;
+};
+
+const clubVerificationSchema = new mongoose.Schema({
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       required: true
+    },
+    clubId: {
+      type: String,
+      unique: true,
+      sparse: true
     },
     clubName: {
       type: String,
@@ -380,8 +394,20 @@ apiRouter.put('/admin/verifications/:id', authenticateToken, isAdmin, checkDatab
     try {
       await verification.save({ session });
 
-      // If approved, update user role to 'club'
+    // If approved, update user role to 'club' and generate clubId
       if (status === 'approved') {
+        // Generate unique clubId
+        let clubId;
+        let isUnique = false;
+        while (!isUnique) {
+          clubId = generateClubId();
+          const existingVerification = await ClubVerification.findOne({ clubId });
+          if (!existingVerification) {
+            isUnique = true;
+          }
+        }
+        verification.clubId = clubId;
+
         const verificationUser = await User.findById(verification.userId);
         if (!verificationUser) {
           throw new Error('Nie znaleziono użytkownika');
