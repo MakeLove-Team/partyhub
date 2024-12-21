@@ -1,4 +1,6 @@
 import { UserRole } from '../models/User';
+import { notifications } from '@mantine/notifications';
+import { API_URL } from '../config/api';
 
 interface RegisterData {
   username: string;
@@ -46,7 +48,7 @@ export const removeToken = () => {
 
 export const register = async (data: RegisterData): Promise<AuthResponse> => {
   try {
-    const response = await fetch('http://localhost:3001/api/auth/register', {
+    const response = await fetch(`${API_URL}/auth/register`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -66,12 +68,22 @@ export const register = async (data: RegisterData): Promise<AuthResponse> => {
     const responseData = await response.json();
     setToken(responseData.token);
     setUserData(responseData.user);
+    notifications.show({
+      title: 'Sukces',
+      message: 'Rejestracja zakończona pomyślnie',
+      color: 'green',
+    });
     return responseData;
   } catch (error) {
     if (error instanceof Error) {
       if (error.name === 'AbortError') {
         throw new Error('Przekroczono limit czasu połączenia. Sprawdź czy serwer jest uruchomiony.');
       }
+      notifications.show({
+        title: 'Błąd',
+        message: error.message,
+        color: 'red',
+      });
       throw error;
     }
     throw new Error('Wystąpił nieznany błąd');
@@ -80,7 +92,7 @@ export const register = async (data: RegisterData): Promise<AuthResponse> => {
 
 export const login = async (data: LoginData): Promise<AuthResponse> => {
   try {
-    const response = await fetch('http://localhost:3001/api/auth/login', {
+    const response = await fetch(`${API_URL}/auth/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -100,12 +112,22 @@ export const login = async (data: LoginData): Promise<AuthResponse> => {
     const responseData = await response.json();
     setToken(responseData.token);
     setUserData(responseData.user);
+    notifications.show({
+      title: 'Sukces',
+      message: 'Logowanie zakończone pomyślnie',
+      color: 'green',
+    });
     return responseData;
   } catch (error) {
     if (error instanceof Error) {
       if (error.name === 'AbortError') {
         throw new Error('Przekroczono limit czasu połączenia. Sprawdź czy serwer jest uruchomiony.');
       }
+      notifications.show({
+        title: 'Błąd',
+        message: error.message,
+        color: 'red',
+      });
       throw error;
     }
     throw new Error('Wystąpił nieznany błąd');
@@ -136,7 +158,7 @@ export const logout = async () => {
   try {
     const token = getToken();
     if (token) {
-      await fetch('http://localhost:3001/api/auth/logout', {
+      await fetch(`${API_URL}/auth/logout`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -144,8 +166,18 @@ export const logout = async () => {
         }
       });
     }
+    notifications.show({
+      title: 'Sukces',
+      message: 'Wylogowano pomyślnie',
+      color: 'green',
+    });
   } catch (error) {
     console.error('Logout error:', error);
+    notifications.show({
+      title: 'Błąd',
+      message: 'Wystąpił błąd podczas wylogowywania',
+      color: 'red',
+    });
   } finally {
     removeToken();
     window.location.href = '/login';

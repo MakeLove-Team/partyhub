@@ -1,5 +1,6 @@
 // src/App.tsx
 import { MantineProvider } from '@mantine/core';
+import { Notifications } from '@mantine/notifications';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AgeVerification } from './components/AgeVerification';
 import { Login } from './pages/Login';
@@ -52,6 +53,7 @@ const App = () => {
   if (!isAgeVerified) {
     return (
       <MantineProvider theme={theme} defaultColorScheme="dark">
+        <Notifications position="top-right" />
         <div 
           style={{
             minHeight: '100vh',
@@ -70,6 +72,7 @@ const App = () => {
 
   return (
     <MantineProvider theme={theme} defaultColorScheme="dark">
+      <Notifications position="top-right" />
       <div 
         style={{
           minHeight: '100vh',

@@ -8,11 +8,16 @@ export const AdminDashboard = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<string | null>('overview');
 
+  const handleLogout = async () => {
+    await logout();
+    navigate('/');
+  };
+
   return (
     <Container size="lg" py="xl">
       <Group justify="space-between" mb="xl">
         <Title order={1} c="white">Panel Administratora</Title>
-        <Button onClick={logout} variant="light">
+        <Button onClick={handleLogout} variant="light">
           Wyloguj
         </Button>
       </Group>

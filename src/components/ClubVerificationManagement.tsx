@@ -1,70 +1,69 @@
-import { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Table,
   Button,
   Text,
-  Badge,
   Modal,
-  Textarea,
+  Stack,
+  Badge,
   Group,
+  Box,
+  ScrollArea,
+  Textarea,
+  Container,
   LoadingOverlay,
-  Alert
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
+import { notifications } from '@mantine/notifications';
+import { API_URL } from '../config/api';
 
 interface ClubVerification {
   _id: string;
   userId: {
-    username: string;
+    _id: string;
     email: string;
+    username: string;
   };
   clubName: string;
   address: string;
   nip: string;
   regon: string;
+  phoneNumber: string;
   description: string;
   openingHours: string;
-  phoneNumber: string;
   status: 'pending' | 'approved' | 'rejected';
   submittedAt: string;
   reviewedAt?: string;
   reviewNotes?: string;
 }
 
-export const ClubVerificationManagement = () => {
+export const ClubVerificationManagement: React.FC = () => {
   const [verifications, setVerifications] = useState<ClubVerification[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [selectedVerification, setSelectedVerification] = useState<ClubVerification | null>(null);
   const [reviewNotes, setReviewNotes] = useState('');
   const [opened, { open, close }] = useDisclosure(false);
+  const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
 
   const fetchVerifications = async () => {
+    setLoading(true);
     try {
-      const token = localStorage.getItem('authToken');
-      if (!token) {
-        throw new Error('Brak tokenu uwierzytelniającego');
-      }
-
-      const response = await fetch('http://localhost:3001/api/admin/verifications', {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/admin/verifications`, {
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json'
+          'Authorization': `Bearer ${token}`
         }
       });
-
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        throw new Error(data.message || 'Błąd podczas pobierania wniosków');
-      }
-
+      if (!response.ok) throw new Error('Failed to fetch verifications');
       const data = await response.json();
       setVerifications(data);
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Wystąpił błąd podczas pobierania danych');
-      console.error('Fetch verifications error:', err);
+    } catch (error) {
+      console.error('Error fetching verifications:', error);
+      notifications.show({
+        title: 'Błąd',
+        message: 'Nie udało się pobrać wniosków o weryfikację',
+        color: 'red',
+      });
     } finally {
       setLoading(false);
     }
@@ -74,22 +73,21 @@ export const ClubVerificationManagement = () => {
     fetchVerifications();
   }, []);
 
-  const handleVerificationAction = async (id: string, status: 'approved' | 'rejected') => {
-    try {
-      setActionLoading(true);
-      setError(null);
-      
-      const token = localStorage.getItem('authToken');
-      if (!token) {
-        throw new Error('Brak tokenu uwierzytelniającego');
-      }
+  const handleViewDetails = (verification: ClubVerification) => {
+    setSelectedVerification(verification);
+    setReviewNotes(verification.reviewNotes || '');
+    open();
+  };
 
-      const response = await fetch(`http://localhost:3001/api/admin/verifications/${id}`, {
+  const handleAction = async (id: string, status: 'approved' | 'rejected') => {
+    setActionLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/admin/verifications/${id}`, {
         method: 'PUT',
         headers: {
-          'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json'
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           status,
@@ -97,150 +95,177 @@ export const ClubVerificationManagement = () => {
         })
       });
 
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        throw new Error(data.message || 'Błąd podczas aktualizacji statusu');
-      }
+      if (!response.ok) throw new Error(`Failed to ${status} club`);
+
+      notifications.show({
+        title: 'Sukces',
+        message: status === 'approved' 
+          ? 'Klub został zatwierdzony' 
+          : 'Klub został odrzucony',
+        color: 'green',
+      });
 
       await fetchVerifications();
       close();
-      setReviewNotes('');
-      setSelectedVerification(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Wystąpił błąd podczas aktualizacji');
-      console.error('Verification action error:', err);
+    } catch (error) {
+      console.error(`Error ${status}ing club:`, error);
+      notifications.show({
+        title: 'Błąd',
+        message: `Nie udało się ${status === 'approved' ? 'zatwierdzić' : 'odrzucić'} klubu`,
+        color: 'red',
+      });
     } finally {
       setActionLoading(false);
     }
   };
 
-  const getStatusBadgeColor = (status: string) => {
+  const getStatusColor = (status: string): string => {
     switch (status) {
-      case 'pending':
-        return 'yellow';
-      case 'approved':
-        return 'green';
-      case 'rejected':
-        return 'red';
-      default:
-        return 'gray';
+      case 'approved': return 'green';
+      case 'rejected': return 'red';
+      default: return 'yellow';
     }
   };
 
-  const getStatusText = (status: string) => {
+  const getStatusText = (status: string): string => {
     switch (status) {
-      case 'pending':
-        return 'Oczekujący';
-      case 'approved':
-        return 'Zatwierdzony';
-      case 'rejected':
-        return 'Odrzucony';
-      default:
-        return status;
+      case 'approved': return 'ZATWIERDZONY';
+      case 'rejected': return 'ODRZUCONY';
+      default: return 'OCZEKUJĄCY';
     }
   };
 
-  const openVerificationModal = (verification: ClubVerification) => {
-    setSelectedVerification(verification);
-    setReviewNotes(verification.reviewNotes || '');
-    setError(null);
-    open();
-  };
-
-  if (loading) {
-    return <LoadingOverlay visible />;
-  }
+  const rows = verifications.map((verification) => (
+    <Table.Tr key={verification._id}>
+      <Table.Td>{verification.clubName}</Table.Td>
+      <Table.Td>{verification.userId.username}</Table.Td>
+      <Table.Td>
+        <Badge color={getStatusColor(verification.status)}>
+          {getStatusText(verification.status)}
+        </Badge>
+      </Table.Td>
+      <Table.Td>{new Date(verification.submittedAt).toLocaleDateString()}</Table.Td>
+      <Table.Td>
+        <Button variant="light" onClick={() => handleViewDetails(verification)}>
+          Szczegóły
+        </Button>
+      </Table.Td>
+    </Table.Tr>
+  ));
 
   return (
-    <>
-      {error && (
-        <Alert color="red" mb="md">
-          {error}
-        </Alert>
-      )}
-
-      <Table>
-        <Table.Thead>
-          <Table.Tr>
-            <Table.Th>Nazwa klubu</Table.Th>
-            <Table.Th>Użytkownik</Table.Th>
-            <Table.Th>Data złożenia</Table.Th>
-            <Table.Th>Status</Table.Th>
-            <Table.Th>Akcje</Table.Th>
-          </Table.Tr>
-        </Table.Thead>
-        <Table.Tbody>
-          {verifications.map((verification) => (
-            <Table.Tr key={verification._id}>
-              <Table.Td>{verification.clubName}</Table.Td>
-              <Table.Td>{verification.userId.username}</Table.Td>
-              <Table.Td>{new Date(verification.submittedAt).toLocaleDateString()}</Table.Td>
-              <Table.Td>
-                <Badge color={getStatusBadgeColor(verification.status)}>
-                  {getStatusText(verification.status)}
-                </Badge>
-              </Table.Td>
-              <Table.Td>
-                <Button
-                  variant="light"
-                  size="xs"
-                  onClick={() => openVerificationModal(verification)}
-                >
-                  Szczegóły
-                </Button>
-              </Table.Td>
+    <Container size="xl" pos="relative">
+      <LoadingOverlay visible={loading} overlayProps={{ blur: 2 }} />
+      <ScrollArea>
+        <Table>
+          <Table.Thead>
+            <Table.Tr>
+              <Table.Th>Nazwa Klubu</Table.Th>
+              <Table.Th>Użytkownik</Table.Th>
+              <Table.Th>Status</Table.Th>
+              <Table.Th>Data Złożenia</Table.Th>
+              <Table.Th>Akcje</Table.Th>
             </Table.Tr>
-          ))}
-        </Table.Tbody>
-      </Table>
+          </Table.Thead>
+          <Table.Tbody>{rows}</Table.Tbody>
+        </Table>
+      </ScrollArea>
 
-      <Modal
-        opened={opened}
-        onClose={close}
-        title="Szczegóły weryfikacji klubu"
+      <Modal 
+        opened={opened} 
+        onClose={close} 
         size="lg"
+        title="Szczegóły Weryfikacji Klubu"
       >
+        <LoadingOverlay visible={actionLoading} overlayProps={{ blur: 2 }} />
         {selectedVerification && (
-          <>
-            <Text><strong>Nazwa klubu:</strong> {selectedVerification.clubName}</Text>
-            <Text><strong>Adres:</strong> {selectedVerification.address}</Text>
-            <Text><strong>NIP:</strong> {selectedVerification.nip}</Text>
-            <Text><strong>REGON:</strong> {selectedVerification.regon}</Text>
-            <Text><strong>Telefon:</strong> {selectedVerification.phoneNumber}</Text>
-            <Text><strong>Godziny otwarcia:</strong> {selectedVerification.openingHours}</Text>
-            <Text mt="md"><strong>Opis:</strong></Text>
-            <Text mb="md">{selectedVerification.description}</Text>
-
-            <Textarea
-              label="Notatki do weryfikacji"
-              value={reviewNotes}
-              onChange={(event) => setReviewNotes(event.currentTarget.value)}
-              minRows={3}
-              mb="md"
-              disabled={actionLoading}
-            />
-
+          <Stack>
+            <Box>
+              <Text fw={700}>Nazwa Klubu</Text>
+              <Text>{selectedVerification.clubName}</Text>
+            </Box>
+            <Box>
+              <Text fw={700}>Użytkownik</Text>
+              <Text>
+                {selectedVerification.userId.username} ({selectedVerification.userId.email})
+              </Text>
+            </Box>
+            <Box>
+              <Text fw={700}>Adres</Text>
+              <Text>{selectedVerification.address}</Text>
+            </Box>
+            <Box>
+              <Text fw={700}>NIP</Text>
+              <Text>{selectedVerification.nip}</Text>
+            </Box>
+            <Box>
+              <Text fw={700}>REGON</Text>
+              <Text>{selectedVerification.regon}</Text>
+            </Box>
+            <Box>
+              <Text fw={700}>Numer Telefonu</Text>
+              <Text>{selectedVerification.phoneNumber}</Text>
+            </Box>
+            <Box>
+              <Text fw={700}>Opis</Text>
+              <Text>{selectedVerification.description}</Text>
+            </Box>
+            <Box>
+              <Text fw={700}>Godziny Otwarcia</Text>
+              <Text>{selectedVerification.openingHours}</Text>
+            </Box>
+            <Box>
+              <Text fw={700}>Status</Text>
+              <Badge color={getStatusColor(selectedVerification.status)}>
+                {getStatusText(selectedVerification.status)}
+              </Badge>
+            </Box>
             {selectedVerification.status === 'pending' && (
-              <Group justify="flex-end" mt="xl">
-                <Button
-                  color="red"
-                  onClick={() => handleVerificationAction(selectedVerification._id, 'rejected')}
-                  loading={actionLoading}
-                >
-                  Odrzuć
-                </Button>
-                <Button
-                  color="green"
-                  onClick={() => handleVerificationAction(selectedVerification._id, 'approved')}
-                  loading={actionLoading}
-                >
-                  Zatwierdź
-                </Button>
-              </Group>
+              <>
+                <Box>
+                  <Text fw={700} mb="xs">Notatki do Weryfikacji</Text>
+                  <Textarea
+                    value={reviewNotes}
+                    onChange={(event: React.ChangeEvent<HTMLTextAreaElement>) => 
+                      setReviewNotes(event.currentTarget.value)
+                    }
+                    placeholder="Dodaj notatki do weryfikacji..."
+                    minRows={3}
+                  />
+                </Box>
+                <Group justify="flex-end" mt="md">
+                  <Button
+                    color="green"
+                    onClick={() => handleAction(selectedVerification._id, 'approved')}
+                    loading={actionLoading}
+                  >
+                    Zatwierdź
+                  </Button>
+                  <Button
+                    color="red"
+                    onClick={() => handleAction(selectedVerification._id, 'rejected')}
+                    loading={actionLoading}
+                  >
+                    Odrzuć
+                  </Button>
+                </Group>
+              </>
             )}
-          </>
+            {selectedVerification.reviewedAt && (
+              <Box>
+                <Text fw={700}>Data Weryfikacji</Text>
+                <Text>{new Date(selectedVerification.reviewedAt).toLocaleString()}</Text>
+              </Box>
+            )}
+            {selectedVerification.reviewNotes && (
+              <Box>
+                <Text fw={700}>Notatki</Text>
+                <Text>{selectedVerification.reviewNotes}</Text>
+              </Box>
+            )}
+          </Stack>
         )}
       </Modal>
-    </>
+    </Container>
   );
 };

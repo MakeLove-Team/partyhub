@@ -1,8 +1,10 @@
-import { TextInput, Textarea, Button, Box, Title, Text, Container, Alert } from '@mantine/core';
+import { TextInput, Textarea, Button, Box, Title, Container, Alert } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getToken } from '../api/auth';
+import { notifications } from '@mantine/notifications';
+import { API_URL } from '../config/api';
 
 interface ClubVerificationFormData {
   clubName: string;
@@ -42,7 +44,7 @@ export const ClubVerificationForm: React.FC = () => {
   useEffect(() => {
     const checkServer = async () => {
       try {
-        const response = await fetch('http://localhost:3001/api/health', {
+        const response = await fetch(`${API_URL}/health`, {
           method: 'GET',
           headers: {
             'Accept': 'application/json'
@@ -102,7 +104,7 @@ export const ClubVerificationForm: React.FC = () => {
         throw new Error('Nie jesteś zalogowany. Przekierowuję do strony logowania...');
       }
 
-      const response = await fetch('http://localhost:3001/api/club-verification', {
+      const response = await fetch(`${API_URL}/club-verification`, {
         method: 'POST',
         headers: {
           'Accept': 'application/json',
@@ -138,11 +140,23 @@ export const ClubVerificationForm: React.FC = () => {
         }
       }
 
+      notifications.show({
+        title: 'Sukces',
+        message: 'Wniosek o weryfikację klubu został wysłany',
+        color: 'green',
+      });
+
       // If we get here, the submission was successful
       navigate('/dashboard/pending-verification');
     } catch (err) {
       console.error('Club verification error:', err);
-      setError(err instanceof Error ? err.message : 'Wystąpił błąd podczas wysyłania formularza');
+      const errorMessage = err instanceof Error ? err.message : 'Wystąpił błąd podczas wysyłania formularza';
+      setError(errorMessage);
+      notifications.show({
+        title: 'Błąd',
+        message: errorMessage,
+        color: 'red',
+      });
     } finally {
       setIsLoading(false);
     }

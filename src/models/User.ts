@@ -10,6 +10,7 @@ export interface IUser extends mongoose.Document {
   password: string;
   role: UserRole;
   authToken?: string;
+  originalId?: string; // ID of the original club verification for club accounts
   comparePassword(candidatePassword: string): Promise<boolean>;
   generateAuthToken(): string;
 }
@@ -39,6 +40,10 @@ const userSchema = new mongoose.Schema({
   },
   authToken: {
     type: String
+  },
+  originalId: {
+    type: String,
+    sparse: true // Allows null/undefined values and creates index only for documents that have this field
   }
 }, {
   timestamps: true
@@ -72,7 +77,8 @@ userSchema.methods.generateAuthToken = function(): string {
     { 
       _id: this._id,
       username: this.username,
-      role: this.role 
+      role: this.role,
+      originalId: this.originalId // Include originalId in token for club accounts
     },
     process.env.JWT_SECRET || 'defaultsecret',
     { expiresIn: '24h' }

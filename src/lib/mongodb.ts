@@ -1,6 +1,6 @@
 import mongoose, { Connection } from 'mongoose';
 
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/partyhub';
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://frazq:codexkarny@partyhub.xnxx9.mongodb.net/?retryWrites=true&w=majority&appName=partyhub';
 
 export const connectDB = async (): Promise<void> => {
   try {
