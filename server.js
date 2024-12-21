@@ -317,6 +317,104 @@ apiRouter.post('/auth/login', checkDatabase, async (req, res) => {
   }
 });
 
+// Admin endpoints
+apiRouter.get('/admin/verifications', authenticateToken, isAdmin, checkDatabase, async (req, res) => {
+  try {
+    // Check if user exists and has admin role
+    const user = await User.findById(req.user.id);
+    if (!user || user.role !== 'admin') {
+      return res.status(403).json({ message: 'Brak uprawnień administratora' });
+    }
+
+    const verifications = await ClubVerification.find()
+      .populate('userId', 'username email')
+      .sort({ submittedAt: -1 });
+
+    // Return empty array if no verifications found instead of 404
+    if (!verifications || verifications.length === 0) {
+      return res.json([]);
+    }
+
+    res.json(verifications);
+  } catch (error) {
+    console.error('Error fetching verifications:', error);
+    if (error.name === 'CastError') {
+      return res.status(400).json({ message: 'Nieprawidłowy format danych' });
+    }
+    res.status(500).json({ message: 'Błąd podczas pobierania wniosków o weryfikację' });
+  }
+});
+
+apiRouter.put('/admin/verifications/:id', authenticateToken, isAdmin, checkDatabase, async (req, res) => {
+  try {
+    // Check if user exists and has admin role
+    const user = await User.findById(req.user.id);
+    if (!user || user.role !== 'admin') {
+      return res.status(403).json({ message: 'Brak uprawnień administratora' });
+    }
+
+    const { id } = req.params;
+    const { status, reviewNotes } = req.body;
+
+    if (!['approved', 'rejected'].includes(status)) {
+      return res.status(400).json({ message: 'Nieprawidłowy status' });
+    }
+
+    const verification = await ClubVerification.findById(id);
+    if (!verification) {
+      return res.status(404).json({ message: 'Nie znaleziono wniosku o weryfikację' });
+    }
+
+    if (verification.status !== 'pending') {
+      return res.status(400).json({ message: 'Ten wniosek został już zweryfikowany' });
+    }
+
+    verification.status = status;
+    verification.reviewNotes = reviewNotes || '';
+    verification.reviewedAt = new Date();
+
+    // Use a transaction to ensure both verification and user updates succeed or fail together
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
+    try {
+      await verification.save({ session });
+
+      // If approved, update user role to 'club'
+      if (status === 'approved') {
+        const verificationUser = await User.findById(verification.userId);
+        if (!verificationUser) {
+          throw new Error('Nie znaleziono użytkownika');
+        }
+        verificationUser.role = 'club';
+        await verificationUser.save({ session });
+      }
+
+      await session.commitTransaction();
+    } catch (error) {
+      await session.abortTransaction();
+      throw error;
+    } finally {
+      session.endSession();
+    }
+
+    // Fetch updated verification with populated user data
+    const updatedVerification = await ClubVerification.findById(id)
+      .populate('userId', 'username email');
+
+    res.json({ 
+      message: `Wniosek został ${status === 'approved' ? 'zatwierdzony' : 'odrzucony'}`,
+      verification: updatedVerification 
+    });
+  } catch (error) {
+    console.error('Error updating verification:', error);
+    if (error.name === 'CastError') {
+      return res.status(400).json({ message: 'Nieprawidłowy format ID' });
+    }
+    res.status(500).json({ message: 'Błąd podczas aktualizacji statusu weryfikacji' });
+  }
+});
+
 // Mount API routes
 app.use('/api', apiRouter);
 

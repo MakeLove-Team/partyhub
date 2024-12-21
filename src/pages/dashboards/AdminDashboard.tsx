@@ -6,7 +6,7 @@ import { useState } from 'react';
 
 export const AdminDashboard = () => {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<string | null>('overview');
+  const [activeTab, setActiveTab] = useState<string>('verifications');
 
   const handleLogout = async () => {
     await logout();
@@ -22,7 +22,7 @@ export const AdminDashboard = () => {
         </Button>
       </Group>
 
-      <Tabs value={activeTab} onChange={setActiveTab} mb="xl">
+      <Tabs value={activeTab} onChange={(value) => setActiveTab(value || 'verifications')} mb="xl">
         <Tabs.List>
           <Tabs.Tab value="overview">Przegląd</Tabs.Tab>
           <Tabs.Tab value="verifications">Weryfikacje Klubów</Tabs.Tab>

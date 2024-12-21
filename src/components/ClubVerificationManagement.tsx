@@ -48,20 +48,31 @@ export const ClubVerificationManagement: React.FC = () => {
   const fetchVerifications = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        throw new Error('Brak tokenu uwierzytelniającego');
+      }
+
       const response = await fetch(`${API_URL}/admin/verifications`, {
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
         }
       });
-      if (!response.ok) throw new Error('Failed to fetch verifications');
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to fetch verifications');
+      }
+
       const data = await response.json();
       setVerifications(data);
     } catch (error) {
       console.error('Error fetching verifications:', error);
       notifications.show({
         title: 'Błąd',
-        message: 'Nie udało się pobrać wniosków o weryfikację',
+        message: error instanceof Error ? error.message : 'Nie udało się pobrać wniosków o weryfikację',
         color: 'red',
       });
     } finally {
@@ -82,7 +93,11 @@ export const ClubVerificationManagement: React.FC = () => {
   const handleAction = async (id: string, status: 'approved' | 'rejected') => {
     setActionLoading(true);
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        throw new Error('Brak tokenu uwierzytelniającego');
+      }
+
       const response = await fetch(`${API_URL}/admin/verifications/${id}`, {
         method: 'PUT',
         headers: {
@@ -95,7 +110,10 @@ export const ClubVerificationManagement: React.FC = () => {
         })
       });
 
-      if (!response.ok) throw new Error(`Failed to ${status} club`);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || `Failed to ${status} club`);
+      }
 
       notifications.show({
         title: 'Sukces',
