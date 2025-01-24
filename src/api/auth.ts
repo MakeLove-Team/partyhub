@@ -1,6 +1,6 @@
 import { UserRole } from '../models/User';
 import { notifications } from '@mantine/notifications';
-import { API_URL } from '../config/api';
+import axiosInstance from './axiosConfig';
 
 interface RegisterData {
   username: string;
@@ -40,6 +40,12 @@ export const getToken = () => {
   return localStorage.getItem('authToken');
 };
 
+// Function to get auth header
+export const getAuthHeader = () => {
+  const token = getToken();
+  return token ? `Bearer ${token}` : '';
+};
+
 // Remove token from localStorage
 export const removeToken = () => {
   localStorage.removeItem('authToken');
@@ -48,32 +54,15 @@ export const removeToken = () => {
 
 export const register = async (data: RegisterData): Promise<AuthResponse> => {
   try {
-    const response = await fetch(`${API_URL}/auth/register`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(data),
-      signal: AbortSignal.timeout(5000)
-    });
-
-    if (!response.ok) {
-      if (response.status === 0) {
-        throw new Error('Nie można połączyć się z serwerem. Sprawdź czy serwer jest uruchomiony.');
-      }
-      const errorData = await response.json();
-      throw new Error(errorData.message || 'Błąd rejestracji');
-    }
-
-    const responseData = await response.json();
-    setToken(responseData.token);
-    setUserData(responseData.user);
+    const response = await axiosInstance.post<AuthResponse>('/auth/register', data);
+    setToken(response.data.token);
+    setUserData(response.data.user);
     notifications.show({
       title: 'Sukces',
       message: 'Rejestracja zakończona pomyślnie',
       color: 'green',
     });
-    return responseData;
+    return response.data;
   } catch (error) {
     if (error instanceof Error) {
       if (error.name === 'AbortError') {
@@ -92,32 +81,15 @@ export const register = async (data: RegisterData): Promise<AuthResponse> => {
 
 export const login = async (data: LoginData): Promise<AuthResponse> => {
   try {
-    const response = await fetch(`${API_URL}/auth/login`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(data),
-      signal: AbortSignal.timeout(5000)
-    });
-
-    if (!response.ok) {
-      if (response.status === 0) {
-        throw new Error('Nie można połączyć się z serwerem. Sprawdź czy serwer jest uruchomiony.');
-      }
-      const errorData = await response.json();
-      throw new Error(errorData.message || 'Błąd logowania');
-    }
-
-    const responseData = await response.json();
-    setToken(responseData.token);
-    setUserData(responseData.user);
+    const response = await axiosInstance.post<AuthResponse>('/auth/login', data);
+    setToken(response.data.token);
+    setUserData(response.data.user);
     notifications.show({
       title: 'Sukces',
       message: 'Logowanie zakończone pomyślnie',
       color: 'green',
     });
-    return responseData;
+    return response.data;
   } catch (error) {
     if (error instanceof Error) {
       if (error.name === 'AbortError') {
@@ -158,13 +130,7 @@ export const logout = async () => {
   try {
     const token = getToken();
     if (token) {
-      await fetch(`${API_URL}/auth/logout`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      await axiosInstance.post('/auth/logout');
     }
     notifications.show({
       title: 'Sukces',

@@ -15,6 +15,7 @@
   "dependencies": {
     "@emotion/react": "^11.13.5",
     "@mantine/core": "^7.14.3",
+    "@mantine/dates": "^7.15.1",
     "@mantine/form": "^7.15.1",
     "@mantine/hooks": "^7.15.1",
     "@mantine/modals": "^7.15.1",
@@ -23,6 +24,7 @@
     "@tauri-apps/api": "^2.1.1",
     "@tauri-apps/plugin-shell": "^2",
     "@types/jsonwebtoken": "^9.0.7",
+    "axios": "^1.7.9",
     "bcryptjs": "^2.4.3",
     "concurrently": "^8.2.2",
     "cors": "^2.8.5",
@@ -38,8 +40,9 @@
     "@tauri-apps/cli": "^2",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^22.10.2",
-    "@types/react": "^18.2.15",
+    "@types/react": "^18.3.18",
     "@types/react-dom": "^18.2.7",
+    "@types/react-router-dom": "^5.3.3",
     "@vitejs/plugin-react": "^4.2.1",
     "typescript": "^5.2.2",
     "vite": "^5.3.1"

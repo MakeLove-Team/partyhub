@@ -16,16 +16,6 @@ export interface IClubVerification extends mongoose.Document {
   reviewNotes?: string;
 }
 
-const generateClubId = () => {
-  // Generate a unique club ID in format: CLUB-XXXXX where X is alphanumeric
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  let id = 'CLUB-';
-  for (let i = 0; i < 5; i++) {
-    id += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return id;
-};
-
 const clubVerificationSchema = new mongoose.Schema({
   userId: {
     type: mongoose.Schema.Types.ObjectId,
